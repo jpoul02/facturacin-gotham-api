@@ -43,4 +43,5 @@ Open http://localhost:8113/ while the API runs. It shows:
 - The emission flow: POS, signer, MH auth, MH reception. Each step lights up when a request passes through it.
 - The live activity log. Click a row to see the request and the response. Passwords are masked, and the JWS is shown decoded.
 - Totals, and the DTEs received with their seal and status.
+- The **Velocidad** control (Normal, Lento, Muy lento) slows down every request: 3 or 6 seconds, half on the way there and half on the way back. A packet moves across the diagram and a line of text describes each step, so a sale can be followed like a flowchart. The test scenarios always run at normal speed.
 - The **Correr escenarios de prueba** button runs 11 cases against the API itself: valid emission, duplicate, tampered signature, totals that do not match, missing token, wrong passwords, query, void, and double void. `pytest` runs the same cases.

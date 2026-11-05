@@ -9,6 +9,7 @@ services by changing base URLs:
   POST /fesv/anulardte                   void a received DTE
 """
 
+import asyncio
 import hashlib
 import json
 import os
@@ -56,6 +57,7 @@ PASOS = {
 }
 _eventos: deque[dict] = deque(maxlen=150)
 _seq = count(1)
+_demora = {"segundos": 0.0}
 
 
 def _legible(entrada: dict) -> dict:
@@ -79,19 +81,37 @@ async def monitor(request: Request, call_next):
     paso = PASOS.get(request.url.path)
     if not paso or request.method != "POST":
         return await call_next(request)
+    origen = request.headers.get("x-origen", "Sistema POS")
+    # ponytail: one global delay for everyone; per-client delays if several people present at once
+    demora = 0 if origen == "Escenario de prueba" else _demora["segundos"]
     crudo = await request.body()
-    response = await call_next(request)
-    cuerpo = b"".join([c async for c in response.body_iterator])
-
     try:
         entrada = json.loads(crudo) if crudo.startswith(b"{") else dict(parse_qsl(crudo.decode()))
     except ValueError:
         entrada = {"crudo": crudo.decode(errors="replace")[:500]}
+
+    evento = {
+        "id": next(_seq),
+        "hora": datetime.now(SV).strftime("%H:%M:%S"),
+        "paso": paso,
+        "fase": "enviando",
+        "demora": demora,
+        "http": None,
+        "resultado": "EN CAMINO",
+        "origen": origen,
+        "codigoGeneracion": entrada.get("codigoGeneracion"),
+        "entrada": _legible(entrada),
+        "salida": None,
+    }
+    _eventos.appendleft(evento)
+    await asyncio.sleep(demora / 2)
+
+    response = await call_next(request)
+    cuerpo = b"".join([c async for c in response.body_iterator])
     try:
         salida = json.loads(cuerpo)
     except ValueError:
         salida = {"crudo": cuerpo.decode(errors="replace")[:500]}
-
     if isinstance(salida, dict) and isinstance(salida.get("body"), str):
         salida = {**salida, "body": salida["body"][:40] + "…"}
     resultado = (salida.get("estado") or salida.get("status") or "ERROR") if isinstance(salida, dict) else "ERROR"
@@ -102,17 +122,15 @@ async def monitor(request: Request, call_next):
     elif paso == "Consulta":
         resultado = "ANULADO" if salida.get("anulado") else "VIGENTE"
 
-    _eventos.appendleft({
-        "id": next(_seq),
-        "hora": datetime.now(SV).strftime("%H:%M:%S"),
-        "paso": paso,
-        "http": response.status_code,
-        "resultado": resultado,
-        "origen": request.headers.get("x-origen", "Sistema POS"),
-        "codigoGeneracion": entrada.get("codigoGeneracion") or (salida.get("codigoGeneracion") if isinstance(salida, dict) else None),
-        "entrada": _legible(entrada),
-        "salida": salida,
-    })
+    evento.update(
+        fase="respondiendo",
+        http=response.status_code,
+        resultado=resultado,
+        salida=salida,
+        codigoGeneracion=evento["codigoGeneracion"] or (salida.get("codigoGeneracion") if isinstance(salida, dict) else None),
+    )
+    await asyncio.sleep(demora / 2)
+    evento["fase"] = "listo"
     return Response(cuerpo, response.status_code, dict(response.headers), response.media_type)
 
 
@@ -143,7 +161,7 @@ def estado():
         }
         for gen, r in reversed(_recibidos.items())
     ]
-    return {"eventos": list(_eventos), "dtes": dtes}
+    return {"eventos": list(_eventos), "dtes": dtes, "demora": _demora["segundos"]}
 
 
 @app.post("/panel/reiniciar", tags=["Panel"])
@@ -392,3 +410,14 @@ def correr_escenarios() -> list[dict]:
     caso("Consultar después de anular", "ANULADO", "ANULADO" if r.get("anulado") else "VIGENTE")
 
     return resultados
+
+
+class DemoraIn(BaseModel):
+    segundos: float
+
+
+@app.post("/panel/demora", tags=["Panel"])
+def cambiar_demora(data: DemoraIn):
+    """Slow mode: each request waits this many seconds (half going, half returning) so the flow can be followed live."""
+    _demora["segundos"] = max(0.0, min(data.segundos, 6.0))
+    return _demora

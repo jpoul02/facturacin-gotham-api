@@ -54,12 +54,29 @@ h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
 
 .flujo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; padding: 20px 18px; margin-bottom: 18px; }
 .nodo { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 0 8px; }
-.nodo:not(:last-child)::after { content: ''; position: absolute; top: 26px; left: calc(50% + 34px); right: calc(-50% + 34px); height: 2px; background: repeating-linear-gradient(90deg, var(--line) 0 8px, transparent 8px 14px); }
-.nodo.vivo:not(:last-child)::after { background: repeating-linear-gradient(90deg, var(--brand) 0 8px, transparent 8px 14px); background-size: 28px 2px; animation: corre 0.6s linear infinite; }
+.nodo:not([data-paso="Recepción"])::after { content: ''; position: absolute; top: 26px; left: calc(50% + 34px); right: calc(-50% + 34px); height: 2px; background: repeating-linear-gradient(90deg, var(--line) 0 8px, transparent 8px 14px); }
+.nodo.vivo:not([data-paso="Recepción"])::after { background: repeating-linear-gradient(90deg, var(--brand) 0 8px, transparent 8px 14px); background-size: 28px 2px; animation: corre 0.6s linear infinite; }
 @keyframes corre { to { background-position: 28px 0; } }
 .icono { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); transition: all 0.25s; }
 .nodo.vivo .icono { background: var(--brand); color: #fff; border-color: var(--brand); box-shadow: 0 0 0 6px var(--brand-soft); }
 .nodo.falla .icono { background: var(--bad); color: #fff; border-color: var(--bad); box-shadow: 0 0 0 6px var(--bad-soft); }
+.nodo.espera .icono { background: var(--warn-soft); color: var(--warn); border-color: #E9C46A; box-shadow: 0 0 0 6px var(--warn-soft); animation: late 1s ease-in-out infinite; }
+@keyframes late { 50% { box-shadow: 0 0 0 11px var(--warn-soft); } }
+.flujo-card { position: relative; margin-bottom: 18px; overflow: hidden; }
+.flujo-card .flujo { margin-bottom: 0; position: relative; }
+.paquete { position: absolute; top: 46px; left: 0; z-index: 2; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #fff; background: var(--ink); box-shadow: 0 6px 18px rgba(16, 23, 42, 0.25); opacity: 0; pointer-events: none; transition-property: left, opacity, background; transition-timing-function: cubic-bezier(0.45, 0, 0.25, 1), ease, ease; }
+.paquete.visible { opacity: 1; }
+.paquete.ok { background: var(--ok); }
+.paquete.bad { background: var(--bad); }
+.paquete svg { flex: none; }
+.narracion { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--bg); font-size: 14px; color: var(--ink-2); min-height: 46px; }
+.narracion b { color: var(--ink); }
+.narracion .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.narracion.activa .punto { background: var(--warn); animation: late 1s infinite; }
+.velocidad { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: 3px; height: 40px; align-items: center; gap: 2px; }
+.velocidad span { font-size: 13px; color: var(--ink-3); padding: 0 8px 0 6px; }
+.velocidad button { height: 32px; padding: 0 11px; border: 0; border-radius: 6px; background: none; color: var(--ink-2); font-size: 13px; font-weight: 500; }
+.velocidad button[aria-pressed="true"] { background: var(--ink); color: #fff; }
 .nodo b { font-size: 14px; }
 .nodo small { color: var(--ink-3); font-size: 12.5px; max-width: 220px; }
 .nodo code { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); background: var(--bg); padding: 2px 6px; border-radius: 4px; }
@@ -143,6 +160,12 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
     </div>
     <div class="acciones">
       <span class="pill" id="estado"><i></i>En línea</span>
+      <div class="velocidad" role="group" aria-label="Velocidad de las peticiones">
+        <span>Velocidad</span>
+        <button type="button" data-seg="0" aria-pressed="true">Normal</button>
+        <button type="button" data-seg="3" aria-pressed="false">Lento</button>
+        <button type="button" data-seg="6" aria-pressed="false">Muy lento</button>
+      </div>
       <a class="btn" href="/docs" target="_blank" rel="noreferrer">Documentación API</a>
       <button class="btn" id="reiniciar">Reiniciar datos</button>
       <button class="btn primario" id="correr">
@@ -152,7 +175,8 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
     </div>
   </header>
 
-  <section class="card flujo" aria-label="Flujo de emisión">
+  <section class="card flujo-card" aria-label="Flujo de emisión">
+  <div class="flujo">
     <div class="nodo" data-paso="Origen">
       <div class="icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
       <b>1 · Sistema POS</b>
@@ -172,10 +196,13 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
     </div>
     <div class="nodo" data-paso="Recepción">
       <div class="icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div>
-      <b>4 · Recepción MH</b>
-      <small>Valida firma y datos; devuelve el sello de recepción</small>
+      <b>4 · Hacienda (MH)</b>
+      <small>Valida firma y datos; devuelve el sello. También consulta y anula</small>
       <code>/fesv/recepciondte</code>
     </div>
+    <div class="paquete" id="paquete" aria-hidden="true"></div>
+  </div>
+  <div class="narracion" id="narracion" aria-live="polite"><span class="punto"></span><span id="narracion-texto">En espera de la próxima venta.</span></div>
   </section>
 
   <section class="cifras">
@@ -213,7 +240,7 @@ let ultimoId = 0;
 
 const CHIP = {
   OK: 'ok', PROCESADO: 'ok', VIGENTE: 'ok',
-  RECHAZADO: 'bad', ERROR: 'bad', 'NO AUTORIZADO': 'warn', ANULADO: 'info',
+  RECHAZADO: 'bad', ERROR: 'bad', 'NO AUTORIZADO': 'warn', ANULADO: 'info', 'EN CAMINO': 'warn',
 };
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -255,26 +282,99 @@ function pintarEventos(eventos) {
       </button>
       <div class="detalle">
         <div><h3>Petición</h3><pre>${json(e.entrada)}</pre></div>
-        <div><h3>Respuesta · HTTP ${e.http}</h3><pre>${json(e.salida)}</pre></div>
+        <div><h3>Respuesta${e.http ? ` · HTTP ${e.http}` : " · en camino…"}</h3><pre>${json(e.salida)}</pre></div>
       </div>
     </div>`).join('');
 }
 
+const NODO = { Firmador: 'Firmador', 'Autenticación': 'Autenticación', 'Recepción': 'Recepción', Consulta: 'Recepción', 'Anulación': 'Recepción' };
+const DESTINO = { Firmador: 'el firmador', 'Autenticación': 'Hacienda', 'Recepción': 'Hacienda', Consulta: 'Hacienda', 'Anulación': 'Hacienda' };
+const IDA = {
+  Firmador: ['JSON de la venta', 'El POS manda el JSON de la venta al <b>firmador</b> para firmarlo con la llave privada del emisor.'],
+  'Autenticación': ['NIT + clave', 'El POS inicia sesión en <b>Hacienda</b> con el NIT del emisor.'],
+  'Recepción': ['DTE firmado (JWS)', 'El POS envía el <b>DTE firmado</b> a Hacienda junto con el token.'],
+  Consulta: ['Consulta', 'Se consulta en <b>Hacienda</b> el estado del DTE.'],
+  'Anulación': ['Evento de anulación', 'El POS envía a <b>Hacienda</b> el evento de anulación firmado.'],
+};
+const ICONO_DOC = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>';
+let anim = { id: 0, fase: '' };
+let demora = 0;
+
+function vuelta(e) {
+  const ok = CHIP[e.resultado] === 'ok' || e.resultado === 'ANULADO';
+  const s = e.salida || {};
+  if (!ok) return [e.resultado, `${DESTINO[e.paso][0].toUpperCase() + DESTINO[e.paso].slice(1)} respondió <b>${esc(e.resultado)}</b>: ${resumen(e)}`];
+  if (e.paso === 'Firmador') return ['JWS firmado', 'El firmador devuelve el documento <b>firmado</b> (JWS RS512).'];
+  if (e.paso === 'Autenticación') return ['Token Bearer', 'Hacienda devuelve el <b>token</b>; se reutiliza en los siguientes envíos.'];
+  if (e.paso === 'Recepción') return ['Sello de recepción', `Hacienda valida firma y datos, y devuelve el <b>sello de recepción</b> <code>${esc(s.selloRecibido)}</code>.`];
+  if (e.paso === 'Anulación') return ['Anulación aceptada', 'Hacienda acepta la <b>anulación</b>: el DTE queda invalidado.'];
+  return [e.resultado, `Hacienda responde: <b>${esc(e.resultado)}</b>.`];
+}
+
+function centro(paso) {
+  const flujo = document.querySelector('.flujo').getBoundingClientRect();
+  const icono = document.querySelector(`.nodo[data-paso="${paso}"] .icono`).getBoundingClientRect();
+  return icono.left + icono.width / 2 - flujo.left;
+}
+
+function moverPaquete(desde, hasta, clase, texto, segundos) {
+  const p = $('paquete');
+  p.style.transitionDuration = '0s';
+  p.className = `paquete visible ${clase}`;
+  p.innerHTML = `${ICONO_DOC}${esc(texto)}`;
+  p.style.left = `${centro(desde)}px`;
+  p.getBoundingClientRect();
+  p.style.transitionDuration = `${segundos}s, 0.2s, 0.2s`;
+  p.style.left = `${centro(hasta)}px`;
+}
+
+function narrar(html, activa) {
+  $('narracion-texto').innerHTML = html;
+  $('narracion').classList.toggle('activa', activa);
+}
+
+function marcar(paso, clase) {
+  const n = document.querySelector(`.nodo[data-paso="${paso}"]`);
+  n.classList.remove('vivo', 'falla', 'espera');
+  if (clase) n.classList.add(clase);
+}
+
 function pintarFlujo(eventos) {
-  const reciente = eventos.find((e) => e.paso in { Firmador: 1, 'Autenticación': 1, 'Recepción': 1 });
-  const fresco = reciente && eventos[0].id > ultimoId;
-  document.querySelectorAll('.nodo').forEach((n) => n.classList.remove('vivo', 'falla'));
-  if (!fresco) return;
-  const orden = ['Origen', 'Firmador', 'Autenticación', 'Recepción'];
-  const hasta = orden.indexOf(reciente.paso);
-  const fallo = CHIP[reciente.resultado] !== 'ok';
-  orden.forEach((p, i) => {
-    const n = document.querySelector(`.nodo[data-paso="${p}"]`);
-    if (i < hasta || (i === hasta && !fallo)) n.classList.add('vivo');
-    if (i === hasta && fallo) n.classList.add('falla');
-  });
-  clearTimeout(pintarFlujo.t);
-  pintarFlujo.t = setTimeout(() => document.querySelectorAll('.nodo').forEach((n) => n.classList.remove('vivo', 'falla')), 2500);
+  const e = eventos[0];
+  if (!e || (e.id === anim.id && e.fase === anim.fase)) return;
+  const nodo = NODO[e.paso];
+  const nuevo = e.id !== anim.id;
+  clearTimeout(pintarFlujo.limpiar);
+
+  if (nuevo) {
+    document.querySelectorAll('.nodo').forEach((n) => n.classList.remove('espera'));
+    marcar('Origen', 'vivo');
+  }
+  if (e.fase === 'enviando') {
+    marcar(nodo, 'espera');
+    moverPaquete('Origen', nodo, '', IDA[e.paso][0], e.demora / 2);
+    narrar(IDA[e.paso][1], true);
+  } else {
+    const [etiqueta, texto] = vuelta(e);
+    const ok = CHIP[e.resultado] === 'ok' || e.resultado === 'ANULADO';
+    marcar(nodo, ok ? 'vivo' : 'falla');
+    if (e.demora > 0 && (anim.fase !== 'respondiendo' || nuevo)) {
+      moverPaquete(nodo, 'Origen', ok ? 'ok' : 'bad', etiqueta, e.demora / 2);
+    }
+    narrar(texto, e.fase !== 'listo');
+  }
+  anim = { id: e.id, fase: e.fase };
+
+  pintarFlujo.limpiar = setTimeout(() => {
+    $('paquete').classList.remove('visible');
+    document.querySelectorAll('.nodo').forEach((n) => n.classList.remove('vivo', 'falla', 'espera'));
+    narrar('En espera de la próxima venta.', false);
+  }, Math.max(4000, e.demora * 1000 + 2500));
+}
+
+function pintarVelocidad(seg) {
+  demora = seg;
+  document.querySelectorAll('.velocidad button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.seg) === seg)));
 }
 
 function pintarDtes(dtes) {
@@ -293,13 +393,16 @@ function pintarDtes(dtes) {
 async function refrescar() {
   try {
     const r = await fetch('/panel/estado');
-    const { eventos, dtes } = await r.json();
+    const { eventos, dtes, demora: seg } = await r.json();
+    if (seg !== demora) pintarVelocidad(seg);
     $('estado').className = 'pill';
     $('estado').innerHTML = '<i></i>En línea';
     $('c-total').textContent = eventos.length;
     $('c-ok').textContent = eventos.filter((e) => e.paso === 'Recepción' && e.resultado === 'PROCESADO').length;
     $('c-bad').textContent = eventos.filter((e) => e.paso === 'Recepción' && e.resultado === 'RECHAZADO').length;
-    if (!eventos.length || eventos[0].id !== ultimoId) {
+    const firma = eventos.slice(0, 3).map((e) => `${e.id}${e.fase}`).join();
+    if (firma !== refrescar.firma) {
+      refrescar.firma = firma;
       pintarFlujo(eventos);
       pintarEventos(eventos);
       ultimoId = eventos.length ? eventos[0].id : 0;
@@ -350,8 +453,15 @@ $('reiniciar').addEventListener('click', async () => {
   refrescar();
 });
 
+document.querySelector('.velocidad').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  pintarVelocidad(Number(b.dataset.seg));
+  await fetch('/panel/demora', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ segundos: demora }) });
+});
+
 refrescar();
-setInterval(refrescar, 1000);
+setInterval(refrescar, 300);
 </script>
 </body>
 </html>

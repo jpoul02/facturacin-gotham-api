@@ -19,3 +19,9 @@ def test_panel_registra_eventos():
     recepcion = next(e for e in estado["eventos"] if e["paso"] == "Recepción" and e["resultado"] == "PROCESADO")
     assert recepcion["entrada"]["documentoDecodificado"]["emisor"]["nit"]
     assert c.get("/").status_code == 200
+
+
+def test_modo_lento():
+    assert c.post("/panel/demora", json={"segundos": 99}).json()["segundos"] == 6.0
+    assert c.get("/panel/estado").json()["demora"] == 6.0
+    c.post("/panel/demora", json={"segundos": 0})
